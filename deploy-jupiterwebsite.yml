@@ -1,0 +1,74 @@
+---
+# always start your file with 3 dots.
+# name of the play
+- name: deploy jupiter website
+# here is the list of servers listed in the inventory file on which you want to deploy the application.
+# all mean you are telling ansible to install the application in all the servers in the list.
+  hosts: all
+  # in this 2 play, we want ansible to change to root user. this replace: (sudo su)
+  become: yes
+  become_user: root
+# once we switch to root user, we will list all the commands we want to run to install the application.
+# in ansible playbook, to list all the commands you wan to use, we start with:  task. (module)
+
+  tasks:
+  # this module replace yum update -y. it is simply in the format that Yml can understand. 
+  # this task will update all our ec2 instance.
+    - name: update ec2 instance
+      yum:
+      # this command "*" is to upgrade all the package in our ec2 instance. 
+        name: "*"
+        # this mean for any package, we want to get the latest version. 
+        state: latest
+        update_cache: yes
+# here we are installing apache web server in our instance. task name is: install apache web server.
+# the ansible module we are using is yum.
+    - name: install apache server
+      yum:
+        name: httpd
+        state: latest
+# once we install the apache webserver, next task is to change the directory in to html directory
+# the ansible module we are using for that is shell. shel module can be foung in ansible documentation. 
+    - name: change directory to the html directory
+      shell: cd/var/www/html
+# here the next task is going to download file from git hub. the command ansible use is : get_url
+    - name: download web files from github
+      get_url:
+      # url perimeters is the address where we want to download the web file from
+        url: https://github.com/mikeolivier/jupiter/archive/refs/heads/main.zip
+      # here is the destination where you wan to download the web file too 
+        dest: cd/var/www/html/
+# once you download the web file in to the destination, the next task is to unzib. 
+
+    - name: unzip the zip folder
+      ansible.builtin.unarchive:
+      # remember we downloaded the web file to out html so it is the source
+        src: cd/var/www/html/jupiter-main.zip
+      # we are unziping the file in too our html directory
+        dest: /var/www/html
+      # it is asking if the ec2 instance is remote or not
+        remote_src: yes
+
+    - name: copy webfiles from the jupiter-main directory to the html directory
+      copy: 
+        src: /var/www/html/jupiter-main/
+        dest: /var/www/html
+        remote_src: yes
+# in this task, we want to delete the jupiter zip file because we don't need it again
+    - name: remove the jupiter-main directory
+      file: 
+      # specified the path were your folder is
+        path: /var/www/html/jupiter-main
+      # here what do you want to do witht he file? it should be absent is a way of removing the file
+        state: absent
+# here we are going to delete the file we downloaded from git hub. that file is in the html folder
+    - name: remove the jupiter-main.zip folder
+      file: 
+        path: /var/www/html/jupiter-main.zip
+        state: absent
+# in this task, we are going to start the apache server. 
+    - name: start apache server, if not started
+      ansible.builtin.service:
+        enabled: yes
+        name: httpd
+        state: started
